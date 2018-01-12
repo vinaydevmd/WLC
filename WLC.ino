@@ -79,7 +79,7 @@ float leve100 = 0;//50% of tank height
 
 
 //Didplay LCD Message 
-void DisplayLCDMessage(bool clearDisplay = true,int timeMs = 500, int c1 = 0 ,int r1 = 0 ,String messageRow1 = "" ,
+void DisplayLCDMessage(bool clearDisplay = true,int timeMs = 500, bool firstLineOFF = false,int c1 = 0 ,int r1 = 0 ,String messageRow1 = "" ,
                        int c2 = 0,int r2 = 0 ,String messageRow2 = "");
                        
 /*
@@ -87,6 +87,7 @@ Bar Graph Logic To display Tank filled status
 */
 // To Create Characters for Bar Graph
 
+/*
 byte NoLevel[8] = {
  0b00000,
  0b00000,
@@ -142,7 +143,7 @@ byte Leve100[8] = {
  0b11111
 };
 
-
+*/
 
 void setup() {
   
@@ -200,7 +201,7 @@ void setup() {
 //void DisplayLCDMessage(bool clearDisplay = false,int c1 = 0 ,int r1 = 0 ,String messageRow1 = "" ,
 //                       int c2 = 0,int r2 = 0 ,String messageRow2 = "");
                        
-      DisplayLCDMessage(true,1000,0,0,"Data Loading. . ");
+      DisplayLCDMessage(true,1000,false,0,0,"Data Loading. . ");
       
      // delay(500);
 
@@ -226,7 +227,7 @@ void setup() {
       char tempMsg1[LCD_CHAR_LENGTH];  
       sprintf(tempMsg1, "Tanks Selected:%d", TanksSelected); // send data to the buffer
       
-      DisplayLCDMessage(true,1000,0,0,tempMsg1);
+      DisplayLCDMessage(true,1000,false,0,0,tempMsg1);
        
       
       //Initialize Configuration Library
@@ -389,8 +390,8 @@ void loop()
         leve100 = tankHeight;//50% of tank height
         */
 
-        
-       int TankLevel = (tankDistance / tankHeight)*100 ;
+        //Take value of
+       float TankLevel = (tankDistance / tankHeight) * 100 ;
 
        Serial.print("Level");
        Serial.println(TankLevel);
@@ -406,7 +407,7 @@ void loop()
         //Check primary tank/Sump filled status
         if(primary)
         {
-          if(tankDistance >= leve80 )//leve80
+          if(TankLevel >= m_pConfigureLib->GetTankOnPercentage(tankCount))
               primaryTankFilled = false;
            else
               primaryTankFilled = true;
@@ -416,13 +417,13 @@ void loop()
           //Check T2,T3 full staus
           if(!upperTankON)
           {
-            if(tankDistance >= leve80)//leve80
+            if(tankDistance >= m_pConfigureLib->GetTankOnPercentage(tankCount))
                 upperTankON = true;
             else
                 upperTankON = false;
           }
           
-          if(tankDistance <= leve20)
+          if(TankLevel <= m_pConfigureLib->GetTankOFFPercentage(tankCount))
               upperTankOFF = true;
           else
               upperTankOFF = false;
@@ -451,7 +452,7 @@ void InitializeLCD()
     delay(500);*/
 
    //Welcome Message
-   DisplayLCDMessage(true,800,0,0,"Welcome MyTools",3,1,"Controller");
+   DisplayLCDMessage(true,800,false,0,0,"Welcome MyTools",3,1,"Controller");
 }
 
 float GetTankStatus(int tankNo)
@@ -645,12 +646,12 @@ void SetupConfiguration()
       //lcd.setCursor(0,0);
      // lcd.print(displayMsg);
 
-      DisplayLCDMessage(true,200,0,0,displayMsg);
+      DisplayLCDMessage(true,200,false,0,0,displayMsg);
       
       //lcd.setCursor(0,1);
       //lcd.print();
 
-      DisplayLCDMessage(false,200,0,0,displayMsg,0,1,"B2F(inch):");
+      DisplayLCDMessage(false,200,false,0,0,displayMsg,0,1,"B2F(inch):");
       
      // delay(200);
       btmToFillHeight = GetUserInput(11,1,MaxTankHeight,0);
@@ -658,7 +659,7 @@ void SetupConfiguration()
      // lcd.setCursor(0,1);
      // lcd.print("F2S(inch):");
      // delay(200);
-      DisplayLCDMessage(false,200,0,0,displayMsg,0,1,"F2S(inch):");
+      DisplayLCDMessage(false,200,false,0,0,displayMsg,0,1,"F2S(inch):");
      
       fillToSensorHeight = GetUserInput(11,1,MaxTankHeight,0);
  
@@ -669,7 +670,7 @@ void SetupConfiguration()
       displayMsg  = tankName + "ON (%)";
       //lcd.print(displayMsg);
 
-      DisplayLCDMessage(true,200,0,0,displayMsg);
+      DisplayLCDMessage(true,200,false,0,0,displayMsg);
        
       onPoint = GetUserInput(7,1,MaxTankPercentage,onPoint);
       delay(400);
@@ -679,7 +680,7 @@ void SetupConfiguration()
       //lcd.setCursor(0,0);
       displayMsg  = tankName + "OFF (%)";
       //lcd.print(displayMsg);
-      DisplayLCDMessage(true,200,0,0,displayMsg);
+      DisplayLCDMessage(true,200,false,0,0,displayMsg);
       offPoint = GetUserInput(7,1,MaxTankPercentage,offPoint);
       delay(400);
       
@@ -740,7 +741,7 @@ void SetupConfiguration()
     //lcd.setCursor(0,1);
     //lcd.print("Complete");
     //delay(1500);
-     DisplayLCDMessage(true,1500,0,0,"Configuration",0,1,"Complete");
+     DisplayLCDMessage(true,1500,false,0,0,"Configuration",0,1,"Complete");
 
     if(EnableDebug)
       Serial.println("Configuration Complete!!");
@@ -900,29 +901,37 @@ String FormatIntMessage(char* msg,int value)
 
 
 //Set tank status w.r.t value as signal level
-void ShowTankStatusInLCD(String tankName,float val,int tanklevel)
+void ShowTankStatusInLCD(String tankName,float val,float tanklevel)
 {
-  
+
+  char tempMsg1[LCD_CHAR_LENGTH];  
+  char *tName = new char[tankName.length() + 1];
+  strcpy(tName, tankName.c_str());
+      
   if(val > ErrorReading)
   {
-    DisplayLCDMessage(true,1000,0,0,tankName,0,1,"Sensor Error !!");
-    return;
+    sprintf(tempMsg1, "% %s",tName,"Sensor Error !!"); // send data to the buffer
+   // DisplayLCDMessage(true,1000,0,0,tempMsg1);
+
+   // if(EnableDebug)
+   //   Serial.println(tempMsg1);
+
+  //  delete [] tName;
+      
   }
   else
   {
-    char tempMsg1[LCD_CHAR_LENGTH];  
-    char *tName = new char[tankName.length() + 1];
-    strcpy(tName, tankName.c_str());
-    
     // strcpy(tName,tankName);
-    sprintf(tempMsg1, "% %d %s",tName,tanklevel,"%"); // send data to the buffer
-    DisplayLCDMessage(true,1000,0,0,tempMsg1);
-
-     if(EnableDebug)
-      Serial.println(tempMsg1);
-    
-    delete [] tName;
+    sprintf(tempMsg1, "% %.0f %s",tName,tanklevel,"%"); // send data to the buffer
+  
   }
+
+  DisplayLCDMessage(true,1000,0,0,tempMsg1);
+
+   if(EnableDebug)
+    Serial.println(tempMsg1);
+    
+   delete [] tName;
   
   /*
     lcd.clear();
@@ -1084,6 +1093,9 @@ void CoreControllerLogic(bool primaryTankFilled,bool upperTankON,bool upperTankO
       {
         //SUMP MOTOR ON
         digitalWrite(sumpMotorPin, HIGH);
+
+        DisplayLCDMessage(false,1000,true,0,0,"",0,1,"Sump Motor Running");
+        
         //Bore pump OFF
         digitalWrite(boreMotorPin, LOW);
       }
@@ -1096,6 +1108,8 @@ void CoreControllerLogic(bool primaryTankFilled,bool upperTankON,bool upperTankO
         digitalWrite(sumpMotorPin, LOW);
        //Bore pump ON
         digitalWrite(boreMotorPin, HIGH);
+
+        DisplayLCDMessage(false,1000,true,0,0,"",0,1,"Borewell Running");
       }
       else if(upperTankOFF)
       {
@@ -1104,6 +1118,8 @@ void CoreControllerLogic(bool primaryTankFilled,bool upperTankON,bool upperTankO
 
          //SUMP MOTOR OFF
          digitalWrite(sumpMotorPin, LOW);
+
+         DisplayLCDMessage(false,1000,true,0,0,"",0,1,"Motors OFF");
       }
     }
    
@@ -1113,15 +1129,19 @@ void CoreControllerLogic(bool primaryTankFilled,bool upperTankON,bool upperTankO
 
 
 //Display message to LCD
-void DisplayLCDMessage(bool clearDisplay,int timeMs, int c1 ,int r1 ,String messageRow1 ,
+void DisplayLCDMessage(bool clearDisplay,int timeMs,bool firstLineOFF,int c1 ,int r1 ,String messageRow1 ,
                        int c2 ,int r2 ,String messageRow2)
 {
 
  if(clearDisplay)
     lcd.clear();
-    
-  lcd.setCursor(c1,r1);
-  lcd.print(messageRow1);
+
+  if(!firstLineOFF)
+  {  
+    lcd.setCursor(c1,r1);
+    lcd.print(messageRow1);
+  }
+  
   lcd.setCursor(c2,r2);
   lcd.print(messageRow2);
     

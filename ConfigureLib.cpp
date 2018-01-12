@@ -11,7 +11,8 @@ LiquidCrystal *m_pLCD;
  Tank *m_pTank[MaxTankCount];
 
 //Tank Class
-Tank::Tank(String tankName,int no,bool primary,int height1,int height2)
+//Default keep Motor on point to 30% and Motor OFF Point to 90%
+Tank::Tank(String tankName,int no,bool primary,int height1,int height2,int onPoint = 30,int offPoint = 90) 
 {
   
     TankName = tankName;
@@ -21,8 +22,11 @@ Tank::Tank(String tankName,int no,bool primary,int height1,int height2)
     FillToSensorHeight = height2;
 
     Height = BottomToFillHeight + FillToSensorHeight;
-}
 
+    TankONPoint = onPoint;
+    TankOFFPoint = offPoint;
+}
+/*
 int Tank::GetTankNo()
 {
   return TankNo;
@@ -57,6 +61,9 @@ void Tank::SetTankFilledHeight(float value)
 {
   FilledHeight = value;
 }
+
+*/
+
 /*******************************************************************************************************************************************************************************/
 
 //Configuration Class
@@ -125,16 +132,16 @@ void ConfigureLib::DisplayTankDetails(int no)
       String message2;
       
       char tempMsg1[LCD_CHAR_LENGTH];  
-      sprintf(tempMsg1, " B2FHt:%d", m_pTank[no]->GetBottomToFillHeight()); // send data to the buffer
+      sprintf(tempMsg1, " B2FHt:%d", m_pTank[no]->BottomToFillHeight); // send data to the buffer
        
-      message1 = m_pTank[no]->GetTankName() + tempMsg1;
+      message1 = m_pTank[no]->TankName + tempMsg1;
       
       char tempMsg2[LCD_CHAR_LENGTH];
       
-      if(m_pTank[no]->IsPrimary())
-        sprintf(tempMsg2, "F2SHt:%d,Prmry:Y", m_pTank[no]->GetFillToSensorHeight()); // send data to the buffer
+      if(m_pTank[no]->IsPrimaryTank)
+        sprintf(tempMsg2, "F2SHt:%d,Prmry:Y", m_pTank[no]->FillToSensorHeight); // send data to the buffer
       else
-        sprintf(tempMsg2, "F2Ht:%d,Prmry:N",m_pTank[no]->GetFillToSensorHeight()); // send data to the buffer
+        sprintf(tempMsg2, "F2Ht:%d,Prmry:N",m_pTank[no]->FillToSensorHeight); // send data to the buffer
       
       message2 = tempMsg2;
       
@@ -147,7 +154,7 @@ void ConfigureLib::DisplayTankDetails(int no)
  bool ConfigureLib::IsTankPrimary(int tankNo)
  {
   if(m_pTank[tankNo])
-     return  m_pTank[tankNo]->IsPrimary();
+     return  m_pTank[tankNo]->IsPrimaryTank;
 
   return false;
  }
@@ -158,7 +165,7 @@ void ConfigureLib::DisplayTankDetails(int no)
    int height = 0;
    
    if(m_pTank[tankNo])
-     height = m_pTank[tankNo]->GetBottomToFillHeight();
+     height = m_pTank[tankNo]->BottomToFillHeight;
 
   return height;
 }
@@ -168,15 +175,29 @@ int ConfigureLib::GetFilltoSensorHeight(int tankNo)
   int height = 0;
    
    if(m_pTank[tankNo])
-     height = m_pTank[tankNo]->GetFillToSensorHeight();
+     height = m_pTank[tankNo]->FillToSensorHeight;
 
   return height;  
 }
 
-void ConfigureLib::SetTankFilledHeight(int tankNo,float value)
-{
+//Get tank primary details
+ int ConfigureLib::GetTankOnPercentage(int tankNo)
+ {
   if(m_pTank[tankNo])
-     m_pTank[tankNo]->SetTankFilledHeight(value);
-}
+     return  m_pTank[tankNo]->TankONPoint;
+
+  return 0;
+ }
+
+
+ //Get tank primary details
+ int ConfigureLib::GetTankOFFPercentage(int tankNo)
+ {
+  if(m_pTank[tankNo])
+     return  m_pTank[tankNo]->TankOFFPoint;
+
+  return 0;
+ }
+ 
 
 

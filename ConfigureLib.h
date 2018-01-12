@@ -13,20 +13,22 @@
 #include <LiquidCrystal.h>
 #define LCD_CHAR_LENGTH 18
 
+
+
 //Class Tank to keep all tank details
 class Tank
 {
   public:
-      Tank(String tankName,int no,bool primary,int height1,int height2);
-      int GetTankNo();
+      Tank(String tankName,int no,bool primary,int height1,int height2,int onPoint = 30,int offPoint = 90);
+    /*  int GetTankNo();
       int GetTankHeight();
       bool IsPrimary();
       String GetTankName();
       int GetBottomToFillHeight();
       int GetFillToSensorHeight();
-      void SetTankFilledHeight(float value);
+      void SetTankFilledHeight(float value);*/
         
-  private:
+  //private:
       //Store Tank details in class
       String TankName; // Tank Name
       int    TankNo; //Tank No details
@@ -35,6 +37,8 @@ class Tank
       int    BottomToFillHeight;
       int    FillToSensorHeight;
       float  FilledHeight;
+      int    TankONPoint;
+      int    TankOFFPoint;
  };
 
 
@@ -73,7 +77,10 @@ class ConfigureLib
 
       int GetFilltoSensorHeight(int tankNo);
 
-      void SetTankFilledHeight(int tankNo,float value);
+      int GetTankOnPercentage(int tankNo);
+
+      int GetTankOFFPercentage(int tankNo);
+
 
 };
 

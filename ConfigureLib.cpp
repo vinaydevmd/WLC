@@ -18,6 +18,8 @@ Tank::Tank(String tankName,int no,bool primary,int height1,int height2,int onPoi
 
     TankONPoint = onPoint;
     TankOFFPoint = offPoint;
+
+    DryRunCount = 0;
 }
 
 /*******************************************************************************************************************************************************************************/
@@ -29,6 +31,7 @@ ConfigureLib::ConfigureLib(int tanks)
     if(tanks > 0)
     {
       MaxTanks = tanks;
+      MaxDryRunCount = 30;
     }
 }
 
@@ -39,7 +42,7 @@ bool ConfigureLib::AddTankDetails(String tankName,int no,bool primary,int height
 
   if(tankName != "")
   {
-    m_pTank[no] = new Tank(tankName,no,primary,height1,height2);
+    m_pTank[no] = new Tank(tankName,no,primary,height1,height2,onPoint,OffPoint);
     result = true;
   }
      
@@ -119,5 +122,49 @@ String ConfigureLib::GetTankName(int tankNo)
           
 
   return tankName;
+}
+
+void ConfigureLib::ResetDryCount(int tankNo)
+{
+  if(m_pTank[tankNo])
+    m_pTank[tankNo]->DryRunCount = 0;
+}
+
+void ConfigureLib::SetCurrentValue(int tankNo,float value)
+{
+  if(m_pTank[tankNo])
+  {
+    if(value <= m_pTank[tankNo]->currentValue)
+      m_pTank[tankNo]->DryRunCount++;
+    else
+      m_pTank[tankNo]->DryRunCount = 0;
+  
+    m_pTank[tankNo]->currentValue = value;
+  }
+  
+}
+
+int ConfigureLib::GetDryCount(int tankNo)
+{
+  if(m_pTank[tankNo])
+    return m_pTank[tankNo]->DryRunCount;
+}
+
+bool ConfigureLib::IsTankDry(int tankNo)
+{
+  bool result = false;
+
+  if(m_pTank[tankNo])
+  {
+    if(m_pTank[tankNo]->DryRunCount >= MaxDryRunCount)
+        result = true;
+  }
+
+  return result;
+}
+
+void ConfigureLib::SetMaxDryRunCount(int value)
+{
+  MaxDryRunCount = value;
 }
 

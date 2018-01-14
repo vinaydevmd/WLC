@@ -12,7 +12,6 @@
 
 #define MaxTankCount  5 
 
-
 //Class Tank to keep all tank details
 class Tank
 {
@@ -29,7 +28,9 @@ class Tank
       float  FilledHeight;
       int    TankONPoint;
       int    TankOFFPoint;
-      
+      float  currentValue;
+      int    DryRunCount;
+         
  };
 
 
@@ -39,10 +40,12 @@ class ConfigureLib
 
   public:
       //Constructor
-      ConfigureLib(int sensors);
+      ConfigureLib(int tanks);
       
       //Variables
       int MaxTanks;
+
+      int MaxDryRunCount;
       
       //Methods
       bool AddTankDetails(String tankName,int no,bool primary,int height1,int height2,int onPoint,int OffPoint);
@@ -60,6 +63,16 @@ class ConfigureLib
       int GetTankOFFPercentage(int tankNo);
 
       String GetTankName(int tankNo);
+
+      void SetCurrentValue(int tankNo,float value);
+
+      bool IsTankDry(int tankNo);
+
+      int GetDryCount(int tankNo);
+
+      void SetMaxDryRunCount(int value);
+
+      void ResetDryCount(int tankNo);
 
 private:
       Tank *m_pTank[MaxTankCount];

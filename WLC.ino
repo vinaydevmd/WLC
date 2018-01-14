@@ -59,6 +59,7 @@ const int  MaxTanksSupported = 4;//Numbers
 const int MaxTankHeight = 100; // inches
 const int MaxTickCount  = 5;
 const int MaxTankPercentage = 100;
+const int MaxDryCount = 80;
 
 //Global Variables and Objects
 ConfigureLib *m_pConfigureLib;
@@ -67,7 +68,9 @@ bool IsConfiguration = false;
 bool EnableDebug = true;
 bool SumpMotorExists  = false;
 bool BoreMotorExists = false;
-int PrimaryTankNo = -1;
+int  PrimaryTankNo = -1;
+bool DryRun = false;
+bool ActivateDryRun = false;
 
 //Didplay LCD Message 
 void DisplayLCDMessage(bool clearDisplay = true,int timeMs = 500, bool firstLineOFF = false,int c1 = 0 ,int r1 = 0 ,String messageRow1 = "" ,
@@ -75,7 +78,8 @@ void DisplayLCDMessage(bool clearDisplay = true,int timeMs = 500, bool firstLine
                       
 void setup() {
 
-   const String logFunc = "setup()";
+    const String logFunc = "setup()";
+    int maxDryCount = 30;
     // put your setup code here, to run once:
     
     //Initialization
@@ -144,7 +148,7 @@ void setup() {
           int onPoint = 0;
           int offPoint = 0;
           bool isPrimary = false;
-          
+                  
           String tankName = "";
 
           if(tankCount == PrimaryTankNo)
@@ -169,7 +173,7 @@ void setup() {
 
           address++;
           offPoint = EEPROM.read(address);
-      
+
           if(m_pConfigureLib)
           {    
              if(m_pConfigureLib->AddTankDetails(tankName,tankCount,isPrimary,btmToFillHeight,fillToSensorHeight,onPoint,offPoint))
@@ -195,7 +199,11 @@ void setup() {
 
       address++;
       BoreMotorExists = EEPROM.read(address);
-          
+
+      address++;
+      maxDryCount = EEPROM.read(address);
+
+      m_pConfigureLib->SetMaxDryRunCount(maxDryCount);
 
       //Display loaded data
       for(int i = 1; i <= TanksSelected; i++)
@@ -218,7 +226,7 @@ void setup() {
 // put your main code here, to run repeatedly:
 void loop() 
 {
-      const String logFunc = "loop()";
+     const String logFunc = "loop()";
       
     //Incorporate Manual Mode in controller
     
@@ -242,6 +250,7 @@ void loop()
      bool upperTankON = false;
      bool upperTankOFF = false;
      bool primaryTankFilled = false;
+     bool dryRun = false;
 
      //Actual logic commenting for some time
      for(int tankCount = 1; tankCount <= TanksSelected ; tankCount++)
@@ -256,37 +265,47 @@ void loop()
         }
             
         double tankDistance = GetTankStatus(tankCount);
-
-/*
-        if(tankCount == PrimaryTankNo)
-            tankName = "Sump:";
-        else
-        {
-            tankName = "Tank Up";
-            tankName += String(tankCount - 1); 
-            //tankName += ":"; 
-        }
-     */
-     
+   
         double tankHeight = 0;
         if(m_pConfigureLib)
           tankHeight =  m_pConfigureLib->GetTankFillHeight(tankCount);
 
-       //Take value of
-       int TankLevel = (100- ((tankDistance / tankHeight) * 100)) ;
+        //Take value of
+        int TankLevel = (100- ((tankDistance / tankHeight) * 100)) ;
 
-       if(TankLevel > 100)
+        if(TankLevel > 100)
           TankLevel = 100;
-       else if(TankLevel < 0 )
+        else if(TankLevel < 0 )
           TankLevel = 0;
   
-       ShowTankStatusInLCD(tankName,tankDistance,round(TankLevel));
-        
-      if(tankDistance > ErrorReading)
-      {
-        continue;
-      }
+        ShowTankStatusInLCD(tankName,tankDistance,round(TankLevel));
 
+        if(ActivateDryRun)
+        {
+          m_pConfigureLib->SetCurrentValue(tankCount,round(TankLevel));
+        }
+          
+        if(tankDistance > ErrorReading)
+        {
+        continue;
+        }
+
+        if(m_pConfigureLib)
+        {
+          int drycount = m_pConfigureLib->GetDryCount(tankCount);
+          
+           if(ActivateDryRun)
+              dryRun = m_pConfigureLib->IsTankDry(tankCount);
+      
+          LogSerial(false,logFunc,false,"Dry Count:");
+          LogSerial(true,logFunc,true,String(drycount));
+          LogSerial(false,logFunc,false,"Dry Run:");
+          LogSerial(true,logFunc,true,String(dryRun));
+          
+          if(dryRun)
+              break;
+        }
+     
       //Check primary tank/Sump filled status
       if(primary)
       {
@@ -310,13 +329,12 @@ void loop()
             upperTankOFF = true;
         else
             upperTankOFF = false;
-
       }
     
     }
      
    //This controls sump and borewell pins
-   CoreControllerLogic(primaryTankFilled,upperTankON,upperTankOFF);
+   CoreControllerLogic(primaryTankFilled,upperTankON,upperTankOFF,dryRun);
   
 }
 
@@ -419,6 +437,7 @@ float GetTankStatus(int tankNo)
 void SetupConfiguration()
 {
     const String logFunc = "SetupConfiguration()";
+    int maxDryCount = 30;
 
     //Get information about sump and bore motors
     DisplayLCDMessage(true,1000,false,0,0,"Sump Motor Exists:");
@@ -426,6 +445,11 @@ void SetupConfiguration()
     
     DisplayLCDMessage(true,1000,false,0,0,"Bore Pump Exists:");
     BoreMotorExists = GetUserYesNoInput(7,1);
+
+    //Get user Input for Dry Run Max Count
+    DisplayLCDMessage(true,1000,false,0,0,"DryRun Timeout:");
+    maxDryCount = GetUserInput(7,1,MaxDryCount,maxDryCount);
+    delay(400);
     
     //Please Enter tanks to be configured
     DisplayLCDMessage(true,300,false,0,0,"Number of Tanks");
@@ -439,6 +463,9 @@ void SetupConfiguration()
     
     //Initialize Configuration Library
     m_pConfigureLib = new ConfigureLib(TanksSelected);
+
+    if(m_pConfigureLib)
+        m_pConfigureLib->SetMaxDryRunCount(maxDryCount);
     
     //Store all details at EEPROM 
     EEPROM.write(DataSetAddress,1); 
@@ -461,7 +488,7 @@ void SetupConfiguration()
       //Default on and off points
       int onPoint  = 30;
       int offPoint = 90;
-      
+            
       String tankName = "";
 
       if(PrimaryTankNo == -1)
@@ -554,7 +581,7 @@ void SetupConfiguration()
         //Write Tank OFF Percent details
         DataAddress++;
         EEPROM.write(DataAddress,offPoint);
-             
+            
       }
     }
 
@@ -566,6 +593,11 @@ void SetupConfiguration()
     DataAddress++;
     EEPROM.write(DataAddress,BoreMotorExists);
 
+    //Write Dry Count status
+    DataAddress++;
+    EEPROM.write(DataAddress,maxDryCount);
+
+    
     DisplayLCDMessage(true,1500,false,0,0,"Configuration",false,0,1,"Complete");
 
     LogSerial(true,logFunc,false,"Configuration Complete!!");
@@ -709,7 +741,7 @@ void ShowTankStatusInLCD(String tankName,float val,int tanklevel)
   {
     tempMsg1 = tankName;
     tempMsg1 += ":";
-    tempMsg1 += "SensorError";
+    tempMsg1 += "Error !!";
     DisplayLCDMessage(false,1000,false,0,0,tempMsg1,true);
   }
   else
@@ -724,11 +756,17 @@ void ShowTankStatusInLCD(String tankName,float val,int tanklevel)
   
 }
 
-void CoreControllerLogic(bool primaryTankFilled,bool upperTankON,bool upperTankOFF)
+void CoreControllerLogic(bool primaryTankFilled,bool upperTankON,bool upperTankOFF,bool dryRun)
 {
   const String logFunc = "CoreControllerLogic()";
-  
-  if(!upperTankON && upperTankOFF )
+
+  if(dryRun)
+  {
+     LogSerial(true,logFunc,false,"Dry Run Activated !!");
+     DisplayLCDMessage(false,1200,true,0,0,"",false,0,1,"Dry Run Detected !!");
+  }
+
+  if( (!upperTankON && upperTankOFF ) || dryRun)
   {
     //SUMP & BORE Motor OFF
 
@@ -739,7 +777,7 @@ void CoreControllerLogic(bool primaryTankFilled,bool upperTankON,bool upperTankO
       digitalWrite(boreMotorPin, LOW);
   
     DisplayLCDMessage(false,500,true,0,0,"",false,0,1,"Motors OFF");
-    
+
   }
   else
   {
@@ -747,19 +785,19 @@ void CoreControllerLogic(bool primaryTankFilled,bool upperTankON,bool upperTankO
     {
       if(upperTankON)
       {
-        
         //SUMP MOTOR ON
         if(SumpMotorExists)
         {
           digitalWrite(sumpMotorPin, HIGH);
-          DisplayLCDMessage(false,500,true,0,0,"",false,0,1,"Sump Motor ON");
+          DisplayLCDMessage(false,800,true,0,0,"",false,0,1,"Sump Motor ON");
+          ActivateDryRun = true;
         }
         
         //Bore pump OFF
         if(BoreMotorExists)
         {
           digitalWrite(boreMotorPin, LOW);
-          DisplayLCDMessage(false,500,true,0,0,"",false,0,1,"Borewell OFF");
+          DisplayLCDMessage(false,800,true,0,0,"",false,0,1,"Bore Pump OFF");
         }
       }
     }
@@ -771,14 +809,15 @@ void CoreControllerLogic(bool primaryTankFilled,bool upperTankON,bool upperTankO
          if(SumpMotorExists)
          {
             digitalWrite(sumpMotorPin, LOW);
-            DisplayLCDMessage(false,500,true,0,0,"",false,0,1,"Sump Motor OFF");
+            DisplayLCDMessage(false,800,true,0,0,"",false,0,1,"Sump Motor OFF");
          }
         
        //Bore pump ON
         if(BoreMotorExists)
         {
           digitalWrite(boreMotorPin, HIGH);
-          DisplayLCDMessage(false,500,true,0,0,"",false,0,1,"Borewell ON");
+          DisplayLCDMessage(false,800,true,0,0,"",false,0,1,"Bore Pump ON");
+          ActivateDryRun = true;
         }
         
       }
@@ -794,7 +833,8 @@ void CoreControllerLogic(bool primaryTankFilled,bool upperTankON,bool upperTankO
 
          LogSerial(true,logFunc,false,"upperTankOFF");
  
-         DisplayLCDMessage(false,500,true,0,0,"",false,0,1,"Motors OFF");
+         DisplayLCDMessage(false,800,true,0,0,"",false,0,1,"Motors OFF");
+
       }
     }
    
@@ -877,5 +917,6 @@ void LogSerial(bool nextLine,String function,bool flow,String msg)
         Serial.print(msg);
    }
 }
+
 
 

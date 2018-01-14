@@ -45,6 +45,10 @@ const int keypadOKPin = A2;
 //Configuration or Reset Setting PIN
 const int keypadResetPin = A3;
 
+//Pin to reset DryRun mode
+const int dryRunPin = 18;
+
+/**************************************************************************************************************/
 //Error reading for valus in inches
 const int ErrorReading = 1000;
 
@@ -111,6 +115,9 @@ void setup() {
     pinMode(keypadDownPin, INPUT);
     pinMode(keypadResetPin, INPUT);
     pinMode(keypadOKPin, INPUT);
+
+    //Dry Run Pin
+    pinMode(dryRunPin, INPUT);
   
     //Logging
     Serial.begin(9600); // Starts the serial communication
@@ -229,6 +236,14 @@ void loop()
      const String logFunc = "loop()";
       
     //Incorporate Manual Mode in controller
+
+    //Check for Dry Pin
+    if(digitalRead(dryRunPin) == true)
+    {
+      ActivateDryRun = false;
+      LogSerial(false,logFunc,false,String("DryRun Pin pressed"));
+      return;
+    }
     
      //Check for reset pin to reset the configration settings
      if(digitalRead(keypadResetPin) == true)
@@ -245,6 +260,8 @@ void loop()
         
         //Configuration Setup for each tank with parameters required
         SetupConfiguration();
+
+        return;
      }
 
      bool upperTankON = false;
@@ -281,9 +298,9 @@ void loop()
         ShowTankStatusInLCD(tankName,tankDistance,round(TankLevel));
 
         if(ActivateDryRun)
-        {
           m_pConfigureLib->SetCurrentValue(tankCount,round(TankLevel));
-        }
+        else
+          m_pConfigureLib->ResetDryCount(tankCount);
           
         if(tankDistance > ErrorReading)
         {

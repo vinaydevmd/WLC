@@ -58,7 +58,6 @@ int DataAddress = 1;
 const int  MaxTanksSupported = 4;//Numbers
 const int MaxTankHeight = 100; // inches
 const int MaxTickCount  = 5;
-const int PrimaryTankNo = 0;
 const int MaxTankPercentage = 100;
 
 //Global Variables and Objects
@@ -68,6 +67,7 @@ bool IsConfiguration = false;
 bool EnableDebug = true;
 bool SumpMotorExists  = false;
 bool BoreMotorExists = false;
+int PrimaryTankNo = -1;
 
 //Didplay LCD Message 
 void DisplayLCDMessage(bool clearDisplay = true,int timeMs = 500, bool firstLineOFF = false,int c1 = 0 ,int r1 = 0 ,String messageRow1 = "" ,
@@ -137,21 +137,22 @@ void setup() {
       while( address <= MaxDataAddress)
       {
         //Read all tank details from EEPROM
-        for(int tankCount = 0; tankCount < TanksSelected; tankCount++)
+        for(int tankCount = 1; tankCount <= TanksSelected; tankCount++)
         {
           int btmToFillHeight = 0;
           int fillToSensorHeight = 0;
+          int onPoint = 0;
+          int offPoint = 0;
           bool isPrimary = false;
           
           String tankName = "";
 
           if(tankCount == PrimaryTankNo)
-              tankName = "Sump:";
+              tankName = "Sump";
           else
           {
               tankName = "Tank";
-              tankName += String(tankCount);
-              tankName += ":";  
+              tankName += String(tankCount - 1);
           }
           
           address++;
@@ -163,18 +164,24 @@ void setup() {
           address++;
           fillToSensorHeight = EEPROM.read(address);
 
-          LogSerial(true,logFunc,false,tankName);
-          LogSerial(true,logFunc,true,String(btmToFillHeight));
-          LogSerial(true,logFunc,true,String(fillToSensorHeight));
-        
+          address++;
+          onPoint = EEPROM.read(address);
+
+          address++;
+          offPoint = EEPROM.read(address);
+      
           if(m_pConfigureLib)
           {    
-             if(m_pConfigureLib->AddTankDetails(tankName,tankCount,isPrimary,btmToFillHeight,fillToSensorHeight))
+             if(m_pConfigureLib->AddTankDetails(tankName,tankCount,isPrimary,btmToFillHeight,fillToSensorHeight,onPoint,offPoint))
              {
                if(EnableDebug)
                 {
-                  LogSerial(false,logFunc,false,String("Added : "));
-                  LogSerial(true,logFunc,true,tankName);
+                  LogSerial(false,logFunc,false,String("Added "));
+                  LogSerial(false,logFunc,true,tankName);
+                  LogSerial(false,logFunc,true,",B2F : ");
+                  LogSerial(false,logFunc,true,String(btmToFillHeight));
+                  LogSerial(false,logFunc,true,",F2S : ");
+                  LogSerial(true,logFunc,true,String(fillToSensorHeight));
                 }
              }
           }
@@ -183,8 +190,15 @@ void setup() {
         break;// once all tank details are read just break the loop
       }
 
+      address++;
+      SumpMotorExists = EEPROM.read(address);
+
+      address++;
+      BoreMotorExists = EEPROM.read(address);
+          
+
       //Display loaded data
-      for(int i = 0; i < TanksSelected; i++)
+      for(int i = 1; i <= TanksSelected; i++)
       {
         DisplayTankDetails(i);
         delay(1000);
@@ -230,25 +244,29 @@ void loop()
      bool primaryTankFilled = false;
 
      //Actual logic commenting for some time
-     for(int tankCount = 0; tankCount < TanksSelected ; tankCount++)
+     for(int tankCount = 1; tankCount <= TanksSelected ; tankCount++)
      {
         bool primary = false;
+        String tankName = "";
 
         if(m_pConfigureLib)
+        {
             primary = m_pConfigureLib->IsTankPrimary(tankCount);
+            tankName = m_pConfigureLib->GetTankName(tankCount);
+        }
             
         double tankDistance = GetTankStatus(tankCount);
 
-        String tankName = "";
-        
+/*
         if(tankCount == PrimaryTankNo)
             tankName = "Sump:";
         else
         {
-            tankName = "Tank";
-            tankName += String(tankCount); 
-            tankName += ":"; 
+            tankName = "Tank Up";
+            tankName += String(tankCount - 1); 
+            //tankName += ":"; 
         }
+     */
      
         double tankHeight = 0;
         if(m_pConfigureLib)
@@ -324,15 +342,15 @@ float GetTankStatus(int tankNo)
     
     switch(tankNo)
     {
-      case 0: 
+      case 1: 
              trigPin = primaryTrigPin;
              echoPin = primaryEchoPin;
              break;
-      case 1:
+      case 2:
              trigPin = tank2TrigPin;
              echoPin = tank2EchoPin;
              break;
-     case 2:
+     case 3:
              trigPin = tank3TrigPin;
              echoPin = tank3EchoPin;
              break;
@@ -401,9 +419,15 @@ float GetTankStatus(int tankNo)
 void SetupConfiguration()
 {
     const String logFunc = "SetupConfiguration()";
+
+    //Get information about sump and bore motors
+    DisplayLCDMessage(true,1000,false,0,0,"Sump Motor Exists:");
+    SumpMotorExists = GetUserYesNoInput(7,1);
+    
+    DisplayLCDMessage(true,1000,false,0,0,"Bore Pump Exists:");
+    BoreMotorExists = GetUserYesNoInput(7,1);
     
     //Please Enter tanks to be configured
-
     DisplayLCDMessage(true,300,false,0,0,"Number of Tanks");
 
     TanksSelected = GetUserInput(7,1,MaxTanksSupported,0);
@@ -429,7 +453,7 @@ void SetupConfiguration()
     //5. Dry Run.
     
     // Take user input using loop for number of tanks selected
-    for(int tankCount = 0; tankCount < TanksSelected; tankCount++)
+    for(int tankCount = 1; tankCount <= TanksSelected; tankCount++)
     {
       int btmToFillHeight = 0;
       int fillToSensorHeight = 0;
@@ -439,18 +463,27 @@ void SetupConfiguration()
       int offPoint = 90;
       
       String tankName = "";
+
+      if(PrimaryTankNo == -1)
+      {
+        DisplayLCDMessage(true,1000,false,0,0,"Is Sump:");
+        isPrimary = GetUserYesNoInput(7,1);
+      }
+
+      if(isPrimary)
+        PrimaryTankNo = tankCount;
       
       if(tankCount == PrimaryTankNo)
-          tankName = "Sump:";
+          tankName = "Sump";
       else
       {
           tankName = "Tank";
-          tankName += String(tankCount); 
-          tankName += ":"; 
+          tankName += String(tankCount - 1); 
+          //tankName += ":"; 
       }
           
       String displayMsg = "";
-      displayMsg  += tankName + "Ht in inch";
+      displayMsg  += tankName + ": " + "Ht in inch";
 
       DisplayLCDMessage(true,200,false,0,0,displayMsg);
     
@@ -464,7 +497,7 @@ void SetupConfiguration()
       fillToSensorHeight = GetUserInput(11,1,MaxTankHeight,0);
  
       //Get user Input for tank filling percentage of each tank ON Point
-      displayMsg  = tankName + "ON (%)";
+      displayMsg  = tankName + ": " + "ON (%)";
 
       DisplayLCDMessage(true,200,false,0,0,displayMsg);
        
@@ -472,7 +505,7 @@ void SetupConfiguration()
       delay(400);
 
       //Get user Input for tank filling percentage of each tank OFF Point
-      displayMsg  = tankName + "OFF (%)";
+      displayMsg  = tankName + ": " + "OFF (%)";
 
       DisplayLCDMessage(true,200,false,0,0,displayMsg);
       offPoint = GetUserInput(7,1,MaxTankPercentage,offPoint);
@@ -493,7 +526,7 @@ void SetupConfiguration()
            
       if(m_pConfigureLib)
       {    
-         if(m_pConfigureLib->AddTankDetails(tankName,tankCount,isPrimary,btmToFillHeight,fillToSensorHeight))
+         if(m_pConfigureLib->AddTankDetails(tankName,tankCount,isPrimary,btmToFillHeight,fillToSensorHeight,onPoint,offPoint))
          {
            if(EnableDebug)
             {
@@ -506,7 +539,6 @@ void SetupConfiguration()
         DataAddress++;
         EEPROM.write(DataAddress,isPrimary); 
 
-
         //Write Tank btmToFillHeight details
         DataAddress++;
         EEPROM.write(DataAddress,btmToFillHeight); 
@@ -514,9 +546,25 @@ void SetupConfiguration()
         //Write Tank fillToSensorHeight details
         DataAddress++;
         EEPROM.write(DataAddress,fillToSensorHeight);
+
+        //Write Tank ON Percent details
+        DataAddress++;
+        EEPROM.write(DataAddress,onPoint);
+
+        //Write Tank OFF Percent details
+        DataAddress++;
+        EEPROM.write(DataAddress,offPoint);
              
       }
     }
+
+    //Write Sump motor status
+    DataAddress++;
+    EEPROM.write(DataAddress,SumpMotorExists);
+
+    //Write Bore pump status
+    DataAddress++;
+    EEPROM.write(DataAddress,BoreMotorExists);
 
     DisplayLCDMessage(true,1500,false,0,0,"Configuration",false,0,1,"Complete");
 
@@ -525,11 +573,27 @@ void SetupConfiguration()
     DisplayLCDMessage(true,500,false,0,0,"Please wait. . .");
 
   //Display configured tank details to user
-    for(int i = 0; i < TanksSelected; i++)
+    for(int i = 1; i <= TanksSelected; i++)
     {
       DisplayTankDetails(i);
       delay(1500);
     }
+
+    //Display the status of sump and bore motors
+    String tmpMsg1 = "";
+    if(SumpMotorExists)
+        tmpMsg1 = "Sump Motor: Yes";
+    else
+        tmpMsg1 = "Sump Motor: No";
+      
+    DisplayLCDMessage(true,1000,false,0,0,tmpMsg1);
+
+    if(BoreMotorExists)
+        tmpMsg1 = "Bore Pump: Yes";
+    else
+        tmpMsg1 = "Bore Pump: No";
+        
+    DisplayLCDMessage(true,1000,false,0,0,tmpMsg1);
 
     DisplayLCDMessage(true,500,false,0,0,"Initializing. . .");
 }
@@ -643,12 +707,15 @@ void ShowTankStatusInLCD(String tankName,float val,int tanklevel)
  
   if(val > ErrorReading)
   {
-    DisplayLCDMessage(false,1000,false,0,0,tankName,true,0,1,"Sensor Error !!");
+    tempMsg1 = tankName;
+    tempMsg1 += ":";
+    tempMsg1 += "SensorError";
+    DisplayLCDMessage(false,1000,false,0,0,tempMsg1,true);
   }
   else
   {
     tempMsg1 = tankName;
-    tempMsg1 += "  ";
+    tempMsg1 += ": ";
     tempMsg1 += String(tanklevel);
     tempMsg1 += "%";   
      
@@ -664,10 +731,15 @@ void CoreControllerLogic(bool primaryTankFilled,bool upperTankON,bool upperTankO
   if(!upperTankON && upperTankOFF )
   {
     //SUMP & BORE Motor OFF
-    digitalWrite(sumpMotorPin, LOW);
-    digitalWrite(boreMotorPin, LOW);
+
+    if(SumpMotorExists)
+      digitalWrite(sumpMotorPin, LOW);
+    
+    if(BoreMotorExists)
+      digitalWrite(boreMotorPin, LOW);
   
     DisplayLCDMessage(false,500,true,0,0,"",false,0,1,"Motors OFF");
+    
   }
   else
   {
@@ -675,13 +747,20 @@ void CoreControllerLogic(bool primaryTankFilled,bool upperTankON,bool upperTankO
     {
       if(upperTankON)
       {
+        
         //SUMP MOTOR ON
-        digitalWrite(sumpMotorPin, HIGH);
-  
-        DisplayLCDMessage(false,500,true,0,0,"",false,0,1,"Sump Motor ON");
+        if(SumpMotorExists)
+        {
+          digitalWrite(sumpMotorPin, HIGH);
+          DisplayLCDMessage(false,500,true,0,0,"",false,0,1,"Sump Motor ON");
+        }
         
         //Bore pump OFF
-        digitalWrite(boreMotorPin, LOW);
+        if(BoreMotorExists)
+        {
+          digitalWrite(boreMotorPin, LOW);
+          DisplayLCDMessage(false,500,true,0,0,"",false,0,1,"Borewell OFF");
+        }
       }
     }
     else
@@ -689,21 +768,29 @@ void CoreControllerLogic(bool primaryTankFilled,bool upperTankON,bool upperTankO
       if(upperTankON)
       {
         //SUMP Motor OFF
-        digitalWrite(sumpMotorPin, LOW);
+         if(SumpMotorExists)
+         {
+            digitalWrite(sumpMotorPin, LOW);
+            DisplayLCDMessage(false,500,true,0,0,"",false,0,1,"Sump Motor OFF");
+         }
         
        //Bore pump ON
-        digitalWrite(boreMotorPin, HIGH);
-  
-        DisplayLCDMessage(false,500,true,0,0,"",false,0,1,"Borewell ON");
+        if(BoreMotorExists)
+        {
+          digitalWrite(boreMotorPin, HIGH);
+          DisplayLCDMessage(false,500,true,0,0,"",false,0,1,"Borewell ON");
+        }
         
       }
       else if(upperTankOFF)
       {
          //Bore MOTOR OFF
-         digitalWrite(boreMotorPin, LOW);
+          if(BoreMotorExists)
+            digitalWrite(boreMotorPin, LOW);
   
          //SUMP MOTOR OFF
-         digitalWrite(sumpMotorPin, LOW);
+         if(SumpMotorExists)
+            digitalWrite(sumpMotorPin, LOW);
 
          LogSerial(true,logFunc,false,"upperTankOFF");
  
@@ -760,10 +847,11 @@ void DisplayTankDetails(int no)
       String message2;
       
       message1 = m_pConfigureLib->GetTankName(no);
+      message1 += ":";
       message1 += " B2FHt:";
       message1 += String(m_pConfigureLib->GetBottomToFillHeight(no));
       
-      message2 += " F2SHt:";
+      message2 += "F2SHt:";
       message2 += String(m_pConfigureLib->GetFilltoSensorHeight(no));
        
       if(m_pConfigureLib->IsTankPrimary(no))

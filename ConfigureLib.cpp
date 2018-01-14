@@ -33,7 +33,7 @@ ConfigureLib::ConfigureLib(int tanks)
 }
 
 //Add Tank Details
-bool ConfigureLib::AddTankDetails(String tankName,int no,bool primary,int height1,int height2)
+bool ConfigureLib::AddTankDetails(String tankName,int no,bool primary,int height1,int height2,int onPoint,int OffPoint)
 {
   bool result = false;
 
@@ -107,9 +107,17 @@ int ConfigureLib::GetBottomToFillHeight(int tankNo)
 
 String ConfigureLib::GetTankName(int tankNo)
 {
-  if(m_pTank[tankNo])
-   return  m_pTank[tankNo]->TankName;
+    String tankName = "";
 
-  return "";
+    if(m_pTank[tankNo]->IsPrimaryTank)
+        tankName = "Sump";
+    else
+    {
+        tankName = "Tank";
+        tankName += String(tankNo - 1);
+    }
+          
+
+  return tankName;
 }
 

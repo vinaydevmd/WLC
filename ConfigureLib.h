@@ -45,7 +45,7 @@ class ConfigureLib
       int MaxTanks;
       
       //Methods
-      bool AddTankDetails(String tankName,int no,bool primary,int height1,int height2);
+      bool AddTankDetails(String tankName,int no,bool primary,int height1,int height2,int onPoint,int OffPoint);
 
       bool IsTankPrimary(int tankNo);
 

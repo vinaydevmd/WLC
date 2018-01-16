@@ -47,6 +47,7 @@ const int keypadResetPin = A3;
 
 //Pin to reset DryRun mode
 const int dryRunPin = 18;
+const int manualModePin = 19;
 
 /**************************************************************************************************************/
 //Error reading for valus in inches
@@ -75,6 +76,7 @@ bool BoreMotorExists = false;
 int  PrimaryTankNo = -1;
 bool DryRun = false;
 bool ActivateDryRun = false;
+bool ActivateManualMode = false;
 
 //Didplay LCD Message 
 void DisplayLCDMessage(bool clearDisplay = true,int timeMs = 500, bool firstLineOFF = false,int c1 = 0 ,int r1 = 0 ,String messageRow1 = "" ,
@@ -118,7 +120,8 @@ void setup() {
 
     //Dry Run Pin
     pinMode(dryRunPin, INPUT);
-  
+    pinMode(manualModePin, INPUT);
+    
     //Logging
     Serial.begin(9600); // Starts the serial communication
 
@@ -236,6 +239,15 @@ void loop()
      const String logFunc = "loop()";
       
     //Incorporate Manual Mode in controller
+    if(digitalRead(manualModePin) == true)
+    {
+      ActivateManualMode = true;
+      LogSerial(false,logFunc,false,String("Manual Mode Pin pressed"));
+    }
+    else
+    {
+      ActivateManualMode = false; 
+    }
 
     //Check for Dry Pin
     if(digitalRead(dryRunPin) == true)
@@ -349,9 +361,17 @@ void loop()
       }
     
     }
-     
-   //This controls sump and borewell pins
-   CoreControllerLogic(primaryTankFilled,upperTankON,upperTankOFF,dryRun);
+
+    //Check for Manual Mode before operating motors
+    if(!ActivateManualMode)
+    {
+      //This controls sump and borewell pins
+      CoreControllerLogic(primaryTankFilled,upperTankON,upperTankOFF,dryRun);
+    }
+    else
+    {
+      DisplayLCDMessage(false,1200,true,0,0,"",false,0,1,"Manual Mode Activated");
+    }
   
 }
 

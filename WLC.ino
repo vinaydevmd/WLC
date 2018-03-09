@@ -46,8 +46,8 @@ const int keypadOKPin = A2;
 const int keypadResetPin = A3;
 
 //Pin to reset DryRun mode
-const int dryRunPin = 18;
-const int manualModePin = 19;
+const int dryRunPin = 180;
+const int manualModePin = 190;
 
 /**************************************************************************************************************/
 //Error reading for valus in inches
@@ -239,7 +239,7 @@ void loop()
      const String logFunc = "loop()";
        
     //Incorporate Manual Mode in controller
-    if(digitalRead(manualModePin) == true)
+  /*  if(digitalRead(manualModePin) == true)
     {
       ActivateManualMode = true;
       LogSerial(false,logFunc,false,String("Manual Mode Pin pressed"));
@@ -255,7 +255,7 @@ void loop()
       ActivateDryRun = false;
       LogSerial(false,logFunc,false,String("DryRun Pin pressed"));
       return;
-    }
+    }*/
     
      //Check for reset pin to reset the configration settings
      if(digitalRead(keypadResetPin) == true)
@@ -269,6 +269,14 @@ void loop()
           EEPROM.write(i,0);
         
         DataAddress = 1;
+
+        //Switch off all motors
+        if(SumpMotorExists)
+          digitalWrite(sumpMotorPin, LOW);
+      
+        if(BoreMotorExists)
+          digitalWrite(boreMotorPin, LOW);
+      
         
         //Configuration Setup for each tank with parameters required
         SetupConfiguration();
@@ -443,12 +451,16 @@ float GetTankStatus(int tankNo)
           LogSerial(true,logFunc,false,"Sensor error reading");
           return distance;
       }
+
+       LogSerial(true,logFunc,true,String(distance));
      
       previousValue += distance;
     
       delay(200);
     }
-    
+
+     LogSerial(true,logFunc,true,String(distance));
+     
     //After all tick counts take average of distance
     distance = previousValue / MaxTickCount;
     

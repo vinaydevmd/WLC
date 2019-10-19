@@ -5,3 +5,4 @@ Customized program to run with multiple tanks and multiple motors based on confi
 Used EEPROM of Aurdion to save settings.
 UltraSound sensors used for water level controller
 LCD display used for displaying status messages.
+Also introducing new features
